@@ -10,7 +10,9 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "infoPlist": {
-        "UIBackgroundModes": ["location"],
+        "UIBackgroundModes": [
+          "location"
+        ],
         "NSLocationWhenInUseUsageDescription": "Burnt Rubber uses your location to record trip routes and calculate speed.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Burnt Rubber uses your location in the background so trip recording keeps working when the app isn't in the foreground.",
         "NSMotionUsageDescription": "Burnt Rubber uses motion sensors to detect acceleration, braking, and cornering during your trips."
@@ -63,7 +65,8 @@
         {
           "motionPermission": "Burnt Rubber uses motion sensors to detect acceleration, braking, and cornering during your trips."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

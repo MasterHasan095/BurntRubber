@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth";
 import backupRoutes from "./routes/backup";
+import accountRoutes from "./routes/account";
 
 dotenv.config();
 
@@ -10,6 +11,7 @@ app.use(express.json());
 
 app.use("/auth", authRoutes);
 app.use("/", backupRoutes);
+app.use("/", accountRoutes);
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
