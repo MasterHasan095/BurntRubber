@@ -13,9 +13,15 @@ const signupSchema = z.object({
 
 router.post("/signup", async (req, res) => {
   try {
+    console.log("hjere")
+    console.log(req.body)
     const { email, password } = signupSchema.parse(req.body);
 
+    console.log(email)
+    console.log(password)
+    console.log(process.env.DATABASE_URL)
     const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+    console.log("existing")
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: "Email already registered" });
     }
@@ -26,9 +32,11 @@ router.post("/signup", async (req, res) => {
       [email, hash]
     );
 
+    console.log("tried to insert")
     const user = result.rows[0];
     const token = jwt.sign({ sub: user.id }, process.env.JWT_SECRET!, { expiresIn: "30d" });
 
+    console.group("yaha token aati to bhej hi data")
     res.status(201).json({ token, user: { id: user.id, email: user.email } });
   } catch (err) {
     if (err instanceof z.ZodError) {
