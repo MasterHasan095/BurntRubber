@@ -47,12 +47,16 @@ async function request<T>(
     }
   }
 
+  console.log(API_URL);
+  console.log(path);
+  console.log("update check");
   const response = await fetch(`${API_URL}${path}`, {
     ...rest,
     headers: finalHeaders,
     body: raw ? (body as BodyInit) : body ? JSON.stringify(body) : undefined,
   });
 
+  console.log("are we coming backk");
   // Token expired or invalid — clear it so the app knows to bounce to login
   if (response.status === 401 && auth) {
     await clearToken();

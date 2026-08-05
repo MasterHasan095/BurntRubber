@@ -63,9 +63,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
+      console.log("Here");
       // /login only returns { token }, not the user — fetch profile separately
       const data = await api.post<{ token: string }>(
-        "/login",
+        "/auth/login",
         { email, password },
         { auth: false },
       );
