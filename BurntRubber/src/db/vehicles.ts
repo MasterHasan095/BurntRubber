@@ -47,3 +47,30 @@ export async function deleteVehicle(id: string): Promise<void> {
   const db = await getDb();
   await db.runAsync("DELETE FROM vehicles WHERE id = ?", id);
 }
+
+export async function updateVehicle(
+  id: string,
+  input: {
+    make: string;
+    model: string;
+    year: number;
+    nickname?: string | null;
+  },
+): Promise<Vehicle> {
+  const db = await getDb();
+  await db.runAsync(
+    "UPDATE vehicles SET make = ?, model = ?, year = ?, nickname = ? WHERE id = ?",
+    input.make,
+    input.model,
+    input.year,
+    input.nickname ?? null,
+    id,
+  );
+
+  const vehicle = await db.getFirstAsync<Vehicle>(
+    "SELECT * FROM vehicles WHERE id = ?",
+    id,
+  );
+  if (!vehicle) throw new Error("Vehicle not found after update");
+  return vehicle;
+}

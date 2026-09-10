@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { addVehicle, deleteVehicle, listVehicles, Vehicle } from "../db/vehicles";
+import { addVehicle, deleteVehicle, listVehicles, Vehicle, updateVehicle } from "../db/vehicles";
 
 type GarageState = {
   vehicles: Vehicle[];
@@ -12,6 +12,10 @@ type GarageState = {
     year: number;
     nickname?: string | null;
   }) => Promise<void>;
+  editVehicle: (
+    id: string,
+    input: { make: string; model: string; year: number; nickname?: string | null },
+  ) => Promise<void>;
   removeVehicle: (id: string) => Promise<void>;
 };
 
@@ -34,6 +38,17 @@ export const useGarageStore = create<GarageState>((set, get) => ({
     set({ error: null });
     try {
       await addVehicle(input);
+      await get().fetchVehicles();
+    } catch (err) {
+      set({ error: (err as Error).message });
+      throw err;
+    }
+  },
+
+  editVehicle: async (id, input) => {
+    set({ error: null });
+    try {
+      await updateVehicle(id, input);
       await get().fetchVehicles();
     } catch (err) {
       set({ error: (err as Error).message });

@@ -8,11 +8,23 @@ import {
   View,
 } from "react-native";
 import { useGarageStore } from "../../store/garageStore";
+import { Vehicle } from "../../db/vehicles";
 
 export default function GarageScreen() {
-  const { vehicles, isLoading, error, fetchVehicles, createVehicle, removeVehicle } =
-    useGarageStore();
-  const [modalVisible, setModalVisible] = useState(false);
+  const {
+    vehicles,
+    isLoading,
+    error,
+    fetchVehicles,
+    createVehicle,
+    editVehicle,
+    removeVehicle,
+  } = useGarageStore();
+
+  const [formModalVisible, setFormModalVisible] = useState(false);
+  const [actionSheetVehicle, setActionSheetVehicle] = useState<Vehicle | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   const [make, setMake] = useState("");
   const [model, setModel] = useState("");
   const [year, setYear] = useState("");
@@ -22,19 +34,52 @@ export default function GarageScreen() {
     fetchVehicles();
   }, []);
 
-  const handleAdd = async () => {
-    if (!make || !model || !year) return;
-    await createVehicle({
-      make,
-      model,
-      year: parseInt(year, 10),
-      nickname: nickname || null,
-    });
+  const resetForm = () => {
     setMake("");
     setModel("");
     setYear("");
     setNickname("");
-    setModalVisible(false);
+    setEditingId(null);
+  };
+
+  const openAddForm = () => {
+    resetForm();
+    setFormModalVisible(true);
+  };
+
+  const openEditForm = (vehicle: Vehicle) => {
+    setMake(vehicle.make);
+    setModel(vehicle.model);
+    setYear(String(vehicle.year));
+    setNickname(vehicle.nickname ?? "");
+    setEditingId(vehicle.id);
+    setActionSheetVehicle(null);
+    setFormModalVisible(true);
+  };
+
+  const handleSave = async () => {
+    if (!make || !model || !year) return;
+    const input = {
+      make,
+      model,
+      year: parseInt(year, 10),
+      nickname: nickname || null,
+    };
+
+    if (editingId) {
+      await editVehicle(editingId, input);
+    } else {
+      await createVehicle(input);
+    }
+
+    resetForm();
+    setFormModalVisible(false);
+  };
+
+  const handleDelete = async () => {
+    if (!actionSheetVehicle) return;
+    await removeVehicle(actionSheetVehicle.id);
+    setActionSheetVehicle(null);
   };
 
   return (
@@ -54,7 +99,7 @@ export default function GarageScreen() {
         }
         renderItem={({ item }) => (
           <Pressable
-            onLongPress={() => removeVehicle(item.id)}
+            onLongPress={() => setActionSheetVehicle(item)}
             style={{
               padding: 12,
               borderWidth: 1,
@@ -74,7 +119,7 @@ export default function GarageScreen() {
       />
 
       <Pressable
-        onPress={() => setModalVisible(true)}
+        onPress={openAddForm}
         style={{
           backgroundColor: "#208AEF",
           padding: 14,
@@ -86,7 +131,38 @@ export default function GarageScreen() {
         <Text style={{ color: "white", fontWeight: "600" }}>Add Vehicle</Text>
       </Pressable>
 
-      <Modal visible={modalVisible} animationType="slide" transparent>
+      {/* Action sheet: Edit / Delete */}
+      <Modal visible={!!actionSheetVehicle} transparent animationType="fade">
+        <Pressable
+          onPress={() => setActionSheetVehicle(null)}
+          style={{
+            flex: 1,
+            justifyContent: "flex-end",
+            backgroundColor: "rgba(0,0,0,0.4)",
+          }}
+        >
+          <View style={{ backgroundColor: "white", borderRadius: 12, margin: 16, overflow: "hidden" }}>
+            <Pressable
+              onPress={() => actionSheetVehicle && openEditForm(actionSheetVehicle)}
+              style={{ padding: 16, borderBottomWidth: 1, borderColor: "#eee" }}
+            >
+              <Text style={{ fontSize: 16 }}>Edit</Text>
+            </Pressable>
+            <Pressable onPress={handleDelete} style={{ padding: 16 }}>
+              <Text style={{ fontSize: 16, color: "red" }}>Delete</Text>
+            </Pressable>
+          </View>
+          <Pressable
+            onPress={() => setActionSheetVehicle(null)}
+            style={{ backgroundColor: "white", borderRadius: 12, margin: 16, marginTop: 0, padding: 16 }}
+          >
+            <Text style={{ fontSize: 16, textAlign: "center", color: "#888" }}>Cancel</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Add/Edit form */}
+      <Modal visible={formModalVisible} animationType="slide" transparent>
         <View
           style={{
             flex: 1,
@@ -95,26 +171,22 @@ export default function GarageScreen() {
             backgroundColor: "rgba(0,0,0,0.5)",
           }}
         >
-          <View
-            style={{ backgroundColor: "white", borderRadius: 12, padding: 20 }}
-          >
+          <View style={{ backgroundColor: "white", borderRadius: 12, padding: 20 }}>
             <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 12 }}>
-              Add Vehicle
+              {editingId ? "Edit Vehicle" : "Add Vehicle"}
             </Text>
             <TextInput
               placeholder="Make"
               value={make}
               onChangeText={setMake}
-                placeholderTextColor="#999"
-
+              placeholderTextColor="#999"
               style={inputStyle}
             />
             <TextInput
               placeholder="Model"
               value={model}
               onChangeText={setModel}
-                placeholderTextColor="#999"
-
+              placeholderTextColor="#999"
               style={inputStyle}
             />
             <TextInput
@@ -122,20 +194,18 @@ export default function GarageScreen() {
               value={year}
               onChangeText={setYear}
               keyboardType="numeric"
-                placeholderTextColor="#999"
-
+              placeholderTextColor="#999"
               style={inputStyle}
             />
             <TextInput
               placeholder="Nickname (optional)"
               value={nickname}
               onChangeText={setNickname}
-                placeholderTextColor="#999"
-
+              placeholderTextColor="#999"
               style={inputStyle}
             />
             <Pressable
-              onPress={handleAdd}
+              onPress={handleSave}
               style={{
                 backgroundColor: "#208AEF",
                 padding: 12,
@@ -146,7 +216,13 @@ export default function GarageScreen() {
             >
               <Text style={{ color: "white", fontWeight: "600" }}>Save</Text>
             </Pressable>
-            <Pressable onPress={() => setModalVisible(false)} style={{ marginTop: 8 }}>
+            <Pressable
+              onPress={() => {
+                resetForm();
+                setFormModalVisible(false);
+              }}
+              style={{ marginTop: 8 }}
+            >
               <Text style={{ textAlign: "center", color: "#888" }}>Cancel</Text>
             </Pressable>
           </View>
