@@ -27,6 +27,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   isInitializing: true,
   error: null,
+  
 
   // Call this once on app boot to restore session from stored token
   initialize: async () => {
@@ -48,7 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const data = await api.post<{ token: string; user: User }>(
-        "/signup",
+        "/auth/signup",
         { email, password },
         { auth: false },
       );
@@ -70,6 +71,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         { email, password },
         { auth: false },
       );
+      console.log("After posted")
       await saveToken(data.token);
       await get().fetchMe();
       set({ isLoading: false });
