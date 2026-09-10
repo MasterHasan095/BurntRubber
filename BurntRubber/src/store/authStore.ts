@@ -88,6 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   fetchMe: async () => {
     const user = await api.get<User>("/account/me");
+    console.log(user)
     set({ user });
   },
 }));
