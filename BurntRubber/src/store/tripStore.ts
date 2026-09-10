@@ -7,6 +7,7 @@ import {
   startTrip,
   Trip,
 } from "../db/trips";
+import { locationTrackingService } from "../lib/tracking/locationService";
 
 type TripState = {
   activeTrip: Trip | null;
@@ -37,42 +38,49 @@ export const useTripStore = create<TripState>((set, get) => ({
   },
 
   beginTrip: async (vehicleId) => {
-    set({ error: null });
-    try {
-      const trip = await startTrip(vehicleId);
-      set({ activeTrip: trip });
-    } catch (err) {
-      set({ error: (err as Error).message });
-      throw err;
-    }
-  },
+  set({ error: null });
+  try {
+    const trip = await startTrip(vehicleId);
+    await locationTrackingService.start(); // no tripId arg now — task reads from DB
+    set({ activeTrip: trip });
+  } catch (err) {
+    set({ error: (err as Error).message });
+    throw err;
+  }
+},
 
-  endTrip: async () => {
-    const { activeTrip } = get();
-    if (!activeTrip) return;
+endTrip: async () => {
+  const { activeTrip } = get();
+  if (!activeTrip) return;
 
-    set({ error: null });
-    try {
-      // No real GPS yet — stub summary values for now to test the layer
-      await completeTrip(activeTrip.id, {
-        distanceMeters: 0,
-        durationSeconds: Math.round(
-          (Date.now() - new Date(activeTrip.started_at).getTime()) / 1000,
-        ),
-      });
-      set({ activeTrip: null });
-      await get().fetchTrips();
-    } catch (err) {
-      set({ error: (err as Error).message });
-      throw err;
-    }
-  },
+  set({ error: null });
+  try {
+    const summary = await locationTrackingService.stop(activeTrip.id);
+    const durationSeconds = Math.round(
+      (Date.now() - new Date(activeTrip.started_at).getTime()) / 1000,
+    );
+
+    await completeTrip(activeTrip.id, {
+      distanceMeters: summary.distanceMeters,
+      durationSeconds,
+      maxSpeedMps: summary.maxSpeedMps,
+      avgSpeedMps: summary.avgSpeedMps,
+    });
+
+    set({ activeTrip: null });
+    await get().fetchTrips();
+  } catch (err) {
+    set({ error: (err as Error).message });
+    throw err;
+  }
+},
 
   cancelActiveTrip: async () => {
     const { activeTrip } = get();
     if (!activeTrip) return;
 
     try {
+      await locationTrackingService.stop();
       await discardTrip(activeTrip.id);
       set({ activeTrip: null });
     } catch (err) {

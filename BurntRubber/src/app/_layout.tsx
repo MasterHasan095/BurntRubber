@@ -1,3 +1,6 @@
+
+import "../lib/tracking/locationTask"; // registers the background location task
+// ...rest of your existing imports
 import { SplashScreen, Stack } from "expo-router";
 import { useEffect } from "react";
 

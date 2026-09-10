@@ -145,6 +145,10 @@ export async function addTripPoint(
 }
 
 // Batched insert — used when flushing a buffer of points at once
+// src/db/trips.ts
+
+let writeLock: Promise<void> = Promise.resolve();
+
 export async function addTripPointsBatch(
   tripId: string,
   points: {
@@ -157,9 +161,10 @@ export async function addTripPointsBatch(
   }[],
 ): Promise<void> {
   if (points.length === 0) return;
-  const db = await getDb();
 
-  await db.withTransactionAsync(async () => {
+  // Chain onto the existing lock so writes never overlap/nest
+  const run = writeLock.then(async () => {
+    const db = await getDb();
     for (const point of points) {
       const id = Crypto.randomUUID();
       await db.runAsync(
@@ -177,6 +182,9 @@ export async function addTripPointsBatch(
       );
     }
   });
+
+  writeLock = run.catch(() => {}); // keep the chain alive even if this batch errors
+  return run;
 }
 
 export async function getTripPoints(tripId: string): Promise<TripPoint[]> {
