@@ -1,5 +1,6 @@
 import * as Location from "expo-location";
 import { LOCATION_TASK_NAME } from "./locationTask";
+import { flushLocationBufferToDb } from "./locationBuffer";
 import { getTripPoints } from "../../db/trips";
 import { haversineDistance } from "./geo";
 
@@ -50,8 +51,11 @@ class LocationTrackingService {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
     }
 
-    // Recompute summary from the DB rather than in-memory state,
-    // since points may have been written by the background task.
+    // Flush any buffered points from the background task into SQLite now,
+    // since we're back in the foreground JS context where SQLite works.
+    const flushedCount = await flushLocationBufferToDb(tripId);
+    console.log(`Flushed ${flushedCount} buffered points to DB`);
+
     const points = await getTripPoints(tripId);
     if (points.length === 0) {
       return { distanceMeters: 0, maxSpeedMps: null, avgSpeedMps: null };

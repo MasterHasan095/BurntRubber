@@ -1,9 +1,13 @@
 import { useEffect } from "react";
-import { FlatList, RefreshControl, Text, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { useTripStore } from "../../store/tripStore";
 import { useGarageStore } from "../../store/garageStore";
 
+const MPS_TO_MPH = 2.23694;
+
 export default function HistoryScreen() {
+  const router = useRouter();
   const { trips, isLoading, error, fetchTrips } = useTripStore();
   const { vehicles, fetchVehicles } = useGarageStore();
 
@@ -24,9 +28,18 @@ export default function HistoryScreen() {
     return `${mins}m ${secs}s`;
   };
 
+  const formatDistance = (meters: number) => (meters / 1609.34).toFixed(1);
+  const formatSpeed = (mps: number | null) =>
+    mps != null ? (mps * MPS_TO_MPH).toFixed(0) : "--";
+
   const formatDate = (isoString: string) => {
     const d = new Date(isoString);
-    return d.toLocaleString();
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
   return (
@@ -49,31 +62,50 @@ export default function HistoryScreen() {
           </Text>
         }
         renderItem={({ item }) => (
-          <View
+          <Pressable
+            onPress={() => router.push(`/trip/${item.id}`)}
             style={{
-              padding: 14,
+              padding: 16,
               borderWidth: 1,
               borderColor: "#333",
-              borderRadius: 8,
-              marginBottom: 8,
+              borderRadius: 12,
+              marginBottom: 10,
             }}
           >
-            <Text style={{ fontWeight: "600", marginBottom: 4 }}>
-              {getVehicleLabel(item.vehicle_id)}
-            </Text>
-            <Text style={{ color: "#888", marginBottom: 2 }}>
-              {formatDate(item.started_at)}
-            </Text>
-            <Text style={{ color: "#888", marginBottom: 2 }}>
-              Duration: {formatDuration(item.duration_seconds)}
-            </Text>
-            <Text style={{ color: "#888", marginBottom: 2 }}>
-              Distance: {item.distance_meters.toFixed(0)}m
-            </Text>
-            <Text style={{ color: "#555", fontSize: 12, marginTop: 4 }}>
-              status: {item.status} · id: {item.id.slice(0, 8)}...
-            </Text>
-          </View>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginBottom: 8,
+              }}
+            >
+              <Text style={{ fontWeight: "600", fontSize: 16 }}>
+                {getVehicleLabel(item.vehicle_id)}
+              </Text>
+              <Text style={{ color: "#888" }}>{formatDate(item.started_at)}</Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 20 }}>
+              <View>
+                <Text style={{ fontSize: 18, fontWeight: "600" }}>
+                  {formatDistance(item.distance_meters)}
+                </Text>
+                <Text style={{ color: "#888", fontSize: 12 }}>miles</Text>
+              </View>
+              <View>
+                <Text style={{ fontSize: 18, fontWeight: "600" }}>
+                  {formatDuration(item.duration_seconds)}
+                </Text>
+                <Text style={{ color: "#888", fontSize: 12 }}>duration</Text>
+              </View>
+              <View>
+                <Text style={{ fontSize: 18, fontWeight: "600" }}>
+                  {formatSpeed(item.max_speed_mps)}
+                </Text>
+                <Text style={{ color: "#888", fontSize: 12 }}>max mph</Text>
+              </View>
+            </View>
+          </Pressable>
         )}
       />
     </View>
