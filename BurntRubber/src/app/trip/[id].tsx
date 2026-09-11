@@ -3,6 +3,7 @@ import { ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { getTrip, getTripPoints, Trip, TripPoint } from "../../db/trips";
 import { useGarageStore } from "../../store/garageStore";
+import { getTripEvents, TripEvent } from "../../db/tripEvents";
 
 const MPS_TO_MPH = 2.23694;
 
@@ -13,14 +14,21 @@ export default function TripDetailScreen() {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [points, setPoints] = useState<TripPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<TripEvent[]>([]);
 
   useEffect(() => {
     fetchVehicles();
+
     (async () => {
       if (!id) return;
-      const [t, p] = await Promise.all([getTrip(id), getTripPoints(id)]);
+      const [t, p, e] = await Promise.all([
+        getTrip(id),
+        getTripPoints(id),
+        getTripEvents(id),
+      ]);
       setTrip(t);
       setPoints(p);
+      setEvents(e);
       setLoading(false);
     })();
   }, [id]);
@@ -74,10 +82,26 @@ export default function TripDetailScreen() {
           marginBottom: 24,
         }}
       >
-        <MetricCard label="Distance" value={formatDistance(trip.distance_meters)} unit="mi" />
-        <MetricCard label="Duration" value={formatDuration(trip.duration_seconds)} unit="" />
-        <MetricCard label="Max Speed" value={formatSpeed(trip.max_speed_mps)} unit="mph" />
-        <MetricCard label="Avg Speed" value={formatSpeed(trip.avg_speed_mps)} unit="mph" />
+        <MetricCard
+          label="Distance"
+          value={formatDistance(trip.distance_meters)}
+          unit="mi"
+        />
+        <MetricCard
+          label="Duration"
+          value={formatDuration(trip.duration_seconds)}
+          unit=""
+        />
+        <MetricCard
+          label="Max Speed"
+          value={formatSpeed(trip.max_speed_mps)}
+          unit="mph"
+        />
+        <MetricCard
+          label="Avg Speed"
+          value={formatSpeed(trip.avg_speed_mps)}
+          unit="mph"
+        />
       </View>
 
       <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 8 }}>
@@ -100,8 +124,52 @@ export default function TripDetailScreen() {
         />
         <InfoRow label="GPS points recorded" value={String(points.length)} />
       </View>
+
+      <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 8 }}>
+        Events ({events.length})
+      </Text>
+      {events.length === 0 ? (
+        <Text style={{ color: "#888", marginBottom: 20 }}>
+          No notable events detected.
+        </Text>
+      ) : (
+        <View style={{ marginBottom: 20 }}>
+          {events.map((event) => (
+            <View
+              key={event.id}
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                paddingVertical: 8,
+                borderBottomWidth: 1,
+                borderColor: "#222",
+              }}
+            >
+              <Text style={{ fontWeight: "500" }}>
+                {eventLabel(event.type)}
+              </Text>
+              <Text style={{ color: "#888" }}>
+                {new Date(event.timestamp).toLocaleTimeString()}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
+}
+
+function eventLabel(type: string): string {
+  switch (type) {
+    case "hard_brake":
+      return "🛑 Hard Brake";
+    case "hard_accel":
+      return "⚡ Hard Acceleration";
+    case "sharp_turn":
+      return "↩️ Sharp Turn";
+    default:
+      return type;
+  }
 }
 
 function MetricCard({
@@ -125,7 +193,9 @@ function MetricCard({
     >
       <Text style={{ fontSize: 24, fontWeight: "700" }}>
         {value}
-        {unit ? <Text style={{ fontSize: 14, color: "#888" }}> {unit}</Text> : null}
+        {unit ? (
+          <Text style={{ fontSize: 14, color: "#888" }}> {unit}</Text>
+        ) : null}
       </Text>
       <Text style={{ color: "#888", marginTop: 2 }}>{label}</Text>
     </View>

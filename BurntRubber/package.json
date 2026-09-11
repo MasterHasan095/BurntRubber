@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.13",
+    "@expo/vector-icons": "^15.0.2",
     "@maplibre/maplibre-react-native": "^11.3.6",
     "@nozbe/watermelondb": "^0.28.0",
     "client": "^0.0.1",

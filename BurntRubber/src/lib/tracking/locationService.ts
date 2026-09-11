@@ -2,12 +2,17 @@ import * as Location from "expo-location";
 import { LOCATION_TASK_NAME } from "./locationTask";
 import { flushLocationBufferToDb } from "./locationBuffer";
 import { getTripPoints } from "../../db/trips";
+import { addTripEvents } from "../../db/tripEvents";
+import { detectEvents } from "./eventDetection";
 import { haversineDistance } from "./geo";
+
 
 export type TrackingSummary = {
   distanceMeters: number;
   maxSpeedMps: number | null;
   avgSpeedMps: number | null;
+    eventCount: number;
+
 };
 
 class LocationTrackingService {
@@ -44,21 +49,19 @@ class LocationTrackingService {
     });
   }
 
-  async stop(tripId: string): Promise<TrackingSummary> {
+ async stop(tripId: string): Promise<TrackingSummary> {
     const started =
       await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
     if (started) {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
     }
 
-    // Flush any buffered points from the background task into SQLite now,
-    // since we're back in the foreground JS context where SQLite works.
     const flushedCount = await flushLocationBufferToDb(tripId);
     console.log(`Flushed ${flushedCount} buffered points to DB`);
 
     const points = await getTripPoints(tripId);
     if (points.length === 0) {
-      return { distanceMeters: 0, maxSpeedMps: null, avgSpeedMps: null };
+      return { distanceMeters: 0, maxSpeedMps: null, avgSpeedMps: null, eventCount: 0 };
     }
 
     let totalDistance = 0;
@@ -78,6 +81,21 @@ class LocationTrackingService {
       }
     }
 
+    // Run event detection and persist any detected events
+    const detected = detectEvents(points);
+    if (detected.length > 0) {
+      await addTripEvents(
+        tripId,
+        detected.map((e) => ({
+          type: e.type,
+          timestamp: e.timestamp,
+          latitude: e.latitude,
+          longitude: e.longitude,
+          severity: e.severity,
+        })),
+      );
+    }
+
     return {
       distanceMeters: totalDistance,
       maxSpeedMps: speeds.length > 0 ? Math.max(...speeds) : null,
@@ -85,6 +103,7 @@ class LocationTrackingService {
         speeds.length > 0
           ? speeds.reduce((a, b) => a + b, 0) / speeds.length
           : null,
+      eventCount: detected.length,
     };
   }
 }
