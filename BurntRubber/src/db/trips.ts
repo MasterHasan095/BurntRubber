@@ -194,3 +194,58 @@ export async function getTripPoints(tripId: string): Promise<TripPoint[]> {
     tripId,
   );
 }
+
+export type TripStats = {
+  totalTrips: number;
+  totalDistanceMeters: number;
+  totalDurationSeconds: number;
+  totalHardBrakes: number;
+  totalHardAccels: number;
+  totalSharpTurns: number;
+};
+
+export async function getOverallStats(): Promise<TripStats> {
+  const db = await getDb();
+
+  const tripSummary = await db.getFirstAsync<{
+    totalTrips: number;
+    totalDistanceMeters: number;
+    totalDurationSeconds: number;
+  }>(
+    `SELECT
+       COUNT(*) as totalTrips,
+       COALESCE(SUM(distance_meters), 0) as totalDistanceMeters,
+       COALESCE(SUM(duration_seconds), 0) as totalDurationSeconds
+     FROM trips
+     WHERE status = 'completed'`,
+  );
+
+  const eventSummary = await db.getFirstAsync<{
+    totalHardBrakes: number;
+    totalHardAccels: number;
+    totalSharpTurns: number;
+  }>(
+    `SELECT
+       COUNT(CASE WHEN type = 'hard_brake' THEN 1 END) as totalHardBrakes,
+       COUNT(CASE WHEN type = 'hard_accel' THEN 1 END) as totalHardAccels,
+       COUNT(CASE WHEN type = 'sharp_turn' THEN 1 END) as totalSharpTurns
+     FROM trip_events
+     WHERE trip_id IN (SELECT id FROM trips WHERE status = 'completed')`,
+  );
+
+  return {
+    totalTrips: tripSummary?.totalTrips ?? 0,
+    totalDistanceMeters: tripSummary?.totalDistanceMeters ?? 0,
+    totalDurationSeconds: tripSummary?.totalDurationSeconds ?? 0,
+    totalHardBrakes: eventSummary?.totalHardBrakes ?? 0,
+    totalHardAccels: eventSummary?.totalHardAccels ?? 0,
+    totalSharpTurns: eventSummary?.totalSharpTurns ?? 0,
+  };
+}
+
+export async function getMostRecentTrip(): Promise<Trip | null> {
+  const db = await getDb();
+  return db.getFirstAsync<Trip>(
+    "SELECT * FROM trips WHERE status = 'completed' ORDER BY started_at DESC LIMIT 1",
+  );
+}

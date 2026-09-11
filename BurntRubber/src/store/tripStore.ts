@@ -7,6 +7,8 @@ import {
   startTrip,
   Trip,
 } from "../db/trips";
+import { getOverallStats, getMostRecentTrip, TripStats } from "../db/trips";
+
 import { locationTrackingService } from "../lib/tracking/locationService";
 
 type TripState = {
@@ -14,11 +16,14 @@ type TripState = {
   trips: Trip[];
   isLoading: boolean;
   error: string | null;
+  stats: TripStats | null;
+  mostRecentTrip: Trip | null;
 
   fetchTrips: () => Promise<void>;
   beginTrip: (vehicleId: string) => Promise<void>;
   endTrip: () => Promise<void>;
   cancelActiveTrip: () => Promise<void>;
+  fetchDashboardData: () => Promise<void>;
 };
 
 export const useTripStore = create<TripState>((set, get) => ({
@@ -26,6 +31,8 @@ export const useTripStore = create<TripState>((set, get) => ({
   trips: [],
   isLoading: false,
   error: null,
+  stats: null,
+  mostRecentTrip: null,
 
   fetchTrips: async () => {
     set({ isLoading: true, error: null });
@@ -38,42 +45,55 @@ export const useTripStore = create<TripState>((set, get) => ({
   },
 
   beginTrip: async (vehicleId) => {
-  set({ error: null });
-  try {
-    const trip = await startTrip(vehicleId);
-    await locationTrackingService.start(); // no tripId arg now — task reads from DB
-    set({ activeTrip: trip });
-  } catch (err) {
-    set({ error: (err as Error).message });
-    throw err;
-  }
-},
+    set({ error: null });
+    try {
+      const trip = await startTrip(vehicleId);
+      await locationTrackingService.start(); // no tripId arg now — task reads from DB
+      set({ activeTrip: trip });
+    } catch (err) {
+      set({ error: (err as Error).message });
+      throw err;
+    }
+  },
 
-endTrip: async () => {
-  const { activeTrip } = get();
-  if (!activeTrip) return;
+  endTrip: async () => {
+    const { activeTrip } = get();
+    if (!activeTrip) return;
 
-  set({ error: null });
-  try {
-    const summary = await locationTrackingService.stop(activeTrip.id);
-    const durationSeconds = Math.round(
-      (Date.now() - new Date(activeTrip.started_at).getTime()) / 1000,
-    );
+    set({ error: null });
+    try {
+      const summary = await locationTrackingService.stop(activeTrip.id);
+      const durationSeconds = Math.round(
+        (Date.now() - new Date(activeTrip.started_at).getTime()) / 1000,
+      );
 
-    await completeTrip(activeTrip.id, {
-      distanceMeters: summary.distanceMeters,
-      durationSeconds,
-      maxSpeedMps: summary.maxSpeedMps,
-      avgSpeedMps: summary.avgSpeedMps,
-    });
+      await completeTrip(activeTrip.id, {
+        distanceMeters: summary.distanceMeters,
+        durationSeconds,
+        maxSpeedMps: summary.maxSpeedMps,
+        avgSpeedMps: summary.avgSpeedMps,
+      });
 
-    set({ activeTrip: null });
-    await get().fetchTrips();
-  } catch (err) {
-    set({ error: (err as Error).message });
-    throw err;
-  }
-},
+      set({ activeTrip: null });
+      await get().fetchTrips();
+    } catch (err) {
+      set({ error: (err as Error).message });
+      throw err;
+    }
+  },
+
+  fetchDashboardData: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const [stats, mostRecentTrip] = await Promise.all([
+        getOverallStats(),
+        getMostRecentTrip(),
+      ]);
+      set({ stats, mostRecentTrip, isLoading: false });
+    } catch (err) {
+      set({ isLoading: false, error: (err as Error).message });
+    }
+  },
 
   cancelActiveTrip: async () => {
     const { activeTrip } = get();
