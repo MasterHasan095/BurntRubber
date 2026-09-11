@@ -6,7 +6,13 @@ import { useGarageStore } from "../../store/garageStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useTripStore } from "../../store/tripStore";
 import { getTripEvents, TripEvent } from "../../db/tripEvents";
-import { formatDistance, distanceUnitLabel, formatSpeed, speedUnitLabel } from "../../lib/units";
+import {
+  formatDistance,
+  distanceUnitLabel,
+  formatSpeed,
+  speedUnitLabel,
+} from "../../lib/units";
+import TripMapView from "../../components/TripMapView"; // add to imports
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -94,7 +100,7 @@ export default function TripDetailScreen() {
       <Text style={{ color: "#888", marginBottom: 20 }}>
         {formatDateFull(trip.started_at)}
       </Text>
-
+      <TripMapView points={points} events={events} />
       <View
         style={{
           flexDirection: "row",
