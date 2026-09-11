@@ -58,6 +58,12 @@ async function runMigrations(database: SQLite.SQLiteDatabase) {
       raw_data TEXT -- JSON blob of raw sensor readings around the event, optional
     );
 
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_trip_points_trip_id ON trip_points(trip_id);
     CREATE INDEX IF NOT EXISTS idx_trip_events_trip_id ON trip_events(trip_id);
     CREATE INDEX IF NOT EXISTS idx_trips_vehicle_id ON trips(vehicle_id);

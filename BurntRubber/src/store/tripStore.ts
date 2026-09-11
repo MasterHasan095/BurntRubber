@@ -7,7 +7,7 @@ import {
   startTrip,
   Trip,
 } from "../db/trips";
-import { getOverallStats, getMostRecentTrip, TripStats } from "../db/trips";
+import { getOverallStats, getMostRecentTrip, TripStats, deleteTrip } from "../db/trips";
 
 import { locationTrackingService } from "../lib/tracking/locationService";
 
@@ -19,11 +19,14 @@ type TripState = {
   stats: TripStats | null;
   mostRecentTrip: Trip | null;
 
+
   fetchTrips: () => Promise<void>;
   beginTrip: (vehicleId: string) => Promise<void>;
   endTrip: () => Promise<void>;
   cancelActiveTrip: () => Promise<void>;
   fetchDashboardData: () => Promise<void>;
+    removeTrip: (id: string) => Promise<void>;
+
 };
 
 export const useTripStore = create<TripState>((set, get) => ({
@@ -95,6 +98,16 @@ export const useTripStore = create<TripState>((set, get) => ({
     }
   },
 
+  removeTrip: async (id) => {
+  set({ error: null });
+  try {
+    await deleteTrip(id);
+    await get().fetchTrips();
+  } catch (err) {
+    set({ error: (err as Error).message });
+    throw err;
+  }
+},
   cancelActiveTrip: async () => {
     const { activeTrip } = get();
     if (!activeTrip) return;

@@ -3,29 +3,28 @@ import { useRouter } from "expo-router";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useTripStore } from "../../store/tripStore";
 import { useGarageStore } from "../../store/garageStore";
-
-const MPS_TO_MPH = 2.23694;
+import { useSettingsStore } from "../../store/settingsStore";
+import { formatDistance, distanceUnitLabel, formatSpeed, speedUnitLabel } from "../../lib/units";
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { stats, mostRecentTrip, isLoading, fetchDashboardData } =
     useTripStore();
   const { vehicles, fetchVehicles } = useGarageStore();
+  const { units, loadSettings } = useSettingsStore();
 
   useEffect(() => {
     fetchDashboardData();
     fetchVehicles();
+    loadSettings();
   }, []);
 
-  const formatDistance = (meters: number) => (meters / 1609.34).toFixed(1);
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     if (hours > 0) return `${hours}h ${mins}m`;
     return `${mins}m`;
   };
-  const formatSpeed = (mps: number | null) =>
-    mps != null ? (mps * MPS_TO_MPH).toFixed(0) : "--";
   const formatDate = (isoString: string) =>
     new Date(isoString).toLocaleDateString(undefined, {
       month: "short",
@@ -83,8 +82,8 @@ export default function DashboardScreen() {
         />
         <StatCard
           label="Total Distance"
-          value={formatDistance(stats?.totalDistanceMeters ?? 0)}
-          unit="mi"
+          value={formatDistance(stats?.totalDistanceMeters ?? 0, units)}
+          unit={distanceUnitLabel(units)}
         />
         <StatCard
           label="Total Drive Time"
@@ -132,9 +131,11 @@ export default function DashboardScreen() {
           <View style={{ flexDirection: "row", gap: 20 }}>
             <View>
               <Text style={{ fontSize: 18, fontWeight: "600" }}>
-                {formatDistance(mostRecentTrip.distance_meters)}
+                {formatDistance(mostRecentTrip.distance_meters, units)}
               </Text>
-              <Text style={{ color: "#888", fontSize: 12 }}>miles</Text>
+              <Text style={{ color: "#888", fontSize: 12 }}>
+                {distanceUnitLabel(units)}
+              </Text>
             </View>
             <View>
               <Text style={{ fontSize: 18, fontWeight: "600" }}>
@@ -144,9 +145,11 @@ export default function DashboardScreen() {
             </View>
             <View>
               <Text style={{ fontSize: 18, fontWeight: "600" }}>
-                {formatSpeed(mostRecentTrip.max_speed_mps)}
+                {formatSpeed(mostRecentTrip.max_speed_mps, units)}
               </Text>
-              <Text style={{ color: "#888", fontSize: 12 }}>max mph</Text>
+              <Text style={{ color: "#888", fontSize: 12 }}>
+                max {speedUnitLabel(units)}
+              </Text>
             </View>
           </View>
         </Pressable>

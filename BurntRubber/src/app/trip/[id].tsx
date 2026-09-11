@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { getTrip, getTripPoints, Trip, TripPoint } from "../../db/trips";
 import { useGarageStore } from "../../store/garageStore";
+import { useSettingsStore } from "../../store/settingsStore";
+import { useTripStore } from "../../store/tripStore";
 import { getTripEvents, TripEvent } from "../../db/tripEvents";
-
-const MPS_TO_MPH = 2.23694;
+import { formatDistance, distanceUnitLabel, formatSpeed, speedUnitLabel } from "../../lib/units";
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { vehicles, fetchVehicles } = useGarageStore();
+  const { units, loadSettings } = useSettingsStore();
+  const { removeTrip } = useTripStore();
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [points, setPoints] = useState<TripPoint[]>([]);
@@ -18,6 +22,7 @@ export default function TripDetailScreen() {
 
   useEffect(() => {
     fetchVehicles();
+    loadSettings();
 
     (async () => {
       if (!id) return;
@@ -59,11 +64,27 @@ export default function TripDetailScreen() {
     const secs = seconds % 60;
     return `${mins}m ${secs}s`;
   };
-  const formatDistance = (meters: number) => (meters / 1609.34).toFixed(2);
-  const formatSpeed = (mps: number | null) =>
-    mps != null ? (mps * MPS_TO_MPH).toFixed(1) : "--";
   const formatDateFull = (isoString: string) =>
     new Date(isoString).toLocaleString();
+
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Trip",
+      "This will permanently delete this trip and its data. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            if (!id) return;
+            await removeTrip(id);
+            router.back();
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <ScrollView style={{ flex: 1, padding: 20 }}>
@@ -84,8 +105,8 @@ export default function TripDetailScreen() {
       >
         <MetricCard
           label="Distance"
-          value={formatDistance(trip.distance_meters)}
-          unit="mi"
+          value={formatDistance(trip.distance_meters, units)}
+          unit={distanceUnitLabel(units)}
         />
         <MetricCard
           label="Duration"
@@ -94,13 +115,13 @@ export default function TripDetailScreen() {
         />
         <MetricCard
           label="Max Speed"
-          value={formatSpeed(trip.max_speed_mps)}
-          unit="mph"
+          value={formatSpeed(trip.max_speed_mps, units)}
+          unit={speedUnitLabel(units)}
         />
         <MetricCard
           label="Avg Speed"
-          value={formatSpeed(trip.avg_speed_mps)}
-          unit="mph"
+          value={formatSpeed(trip.avg_speed_mps, units)}
+          unit={speedUnitLabel(units)}
         />
       </View>
 
@@ -155,6 +176,21 @@ export default function TripDetailScreen() {
           ))}
         </View>
       )}
+
+      <Pressable
+        onPress={handleDelete}
+        style={{
+          borderWidth: 1,
+          borderColor: "red",
+          borderRadius: 8,
+          padding: 14,
+          alignItems: "center",
+          marginTop: 8,
+          marginBottom: 40,
+        }}
+      >
+        <Text style={{ color: "red", fontWeight: "600" }}>Delete Trip</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -162,11 +198,11 @@ export default function TripDetailScreen() {
 function eventLabel(type: string): string {
   switch (type) {
     case "hard_brake":
-      return "🛑 Hard Brake";
+      return "\ud83d\uded1 Hard Brake";
     case "hard_accel":
-      return "⚡ Hard Acceleration";
+      return "\u26a1 Hard Acceleration";
     case "sharp_turn":
-      return "↩️ Sharp Turn";
+      return "\u21a9\ufe0f Sharp Turn";
     default:
       return type;
   }

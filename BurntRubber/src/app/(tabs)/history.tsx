@@ -1,19 +1,23 @@
-import { useEffect } from "react";
-import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { FlatList, Modal, Pressable, RefreshControl, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTripStore } from "../../store/tripStore";
 import { useGarageStore } from "../../store/garageStore";
-
-const MPS_TO_MPH = 2.23694;
+import { useSettingsStore } from "../../store/settingsStore";
+import { Trip } from "../../db/trips";
+import { formatDistance, distanceUnitLabel, formatSpeed, speedUnitLabel } from "../../lib/units";
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { trips, isLoading, error, fetchTrips } = useTripStore();
+  const { trips, isLoading, error, fetchTrips, removeTrip } = useTripStore();
   const { vehicles, fetchVehicles } = useGarageStore();
+  const { units, loadSettings } = useSettingsStore();
+  const [actionSheetTrip, setActionSheetTrip] = useState<Trip | null>(null);
 
   useEffect(() => {
     fetchTrips();
     fetchVehicles();
+    loadSettings();
   }, []);
 
   const getVehicleLabel = (vehicleId: string) => {
@@ -28,10 +32,6 @@ export default function HistoryScreen() {
     return `${mins}m ${secs}s`;
   };
 
-  const formatDistance = (meters: number) => (meters / 1609.34).toFixed(1);
-  const formatSpeed = (mps: number | null) =>
-    mps != null ? (mps * MPS_TO_MPH).toFixed(0) : "--";
-
   const formatDate = (isoString: string) => {
     const d = new Date(isoString);
     return d.toLocaleDateString(undefined, {
@@ -40,6 +40,12 @@ export default function HistoryScreen() {
       hour: "numeric",
       minute: "2-digit",
     });
+  };
+
+  const handleDelete = async () => {
+    if (!actionSheetTrip) return;
+    await removeTrip(actionSheetTrip.id);
+    setActionSheetTrip(null);
   };
 
   return (
@@ -64,6 +70,7 @@ export default function HistoryScreen() {
         renderItem={({ item }) => (
           <Pressable
             onPress={() => router.push(`/trip/${item.id}`)}
+            onLongPress={() => setActionSheetTrip(item)}
             style={{
               padding: 16,
               borderWidth: 1,
@@ -88,9 +95,11 @@ export default function HistoryScreen() {
             <View style={{ flexDirection: "row", gap: 20 }}>
               <View>
                 <Text style={{ fontSize: 18, fontWeight: "600" }}>
-                  {formatDistance(item.distance_meters)}
+                  {formatDistance(item.distance_meters, units)}
                 </Text>
-                <Text style={{ color: "#888", fontSize: 12 }}>miles</Text>
+                <Text style={{ color: "#888", fontSize: 12 }}>
+                  {distanceUnitLabel(units)}
+                </Text>
               </View>
               <View>
                 <Text style={{ fontSize: 18, fontWeight: "600" }}>
@@ -100,14 +109,57 @@ export default function HistoryScreen() {
               </View>
               <View>
                 <Text style={{ fontSize: 18, fontWeight: "600" }}>
-                  {formatSpeed(item.max_speed_mps)}
+                  {formatSpeed(item.max_speed_mps, units)}
                 </Text>
-                <Text style={{ color: "#888", fontSize: 12 }}>max mph</Text>
+                <Text style={{ color: "#888", fontSize: 12 }}>
+                  max {speedUnitLabel(units)}
+                </Text>
               </View>
             </View>
           </Pressable>
         )}
       />
+
+      {/* Delete confirmation action sheet */}
+      <Modal visible={!!actionSheetTrip} transparent animationType="fade">
+        <Pressable
+          onPress={() => setActionSheetTrip(null)}
+          style={{
+            flex: 1,
+            justifyContent: "flex-end",
+            backgroundColor: "rgba(0,0,0,0.4)",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "white",
+              borderRadius: 12,
+              margin: 16,
+              overflow: "hidden",
+            }}
+          >
+            <Pressable onPress={handleDelete} style={{ padding: 16 }}>
+              <Text style={{ fontSize: 16, color: "red", textAlign: "center" }}>
+                Delete Trip
+              </Text>
+            </Pressable>
+          </View>
+          <Pressable
+            onPress={() => setActionSheetTrip(null)}
+            style={{
+              backgroundColor: "white",
+              borderRadius: 12,
+              margin: 16,
+              marginTop: 0,
+              padding: 16,
+            }}
+          >
+            <Text style={{ fontSize: 16, textAlign: "center", color: "#888" }}>
+              Cancel
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
